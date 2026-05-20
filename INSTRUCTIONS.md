@@ -1,322 +1,160 @@
-# Instructions
+# Setup and Usage Instructions
 
-## Setup Instructions
+## Table of Contents
 
-1. Open the project in your IDE (VSCode recommended)
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Ensure MongoDB is installed and running locally on `mongodb://localhost:27017/`
+1. [Prerequisites](#prerequisites)
+2. [Initial Setup](#initial-setup)
+3. [Configuration](#configuration)
+4. [Available Commands](#available-commands)
+5. [Reporting](#reporting)
+6. [Troubleshooting](#troubleshooting)
+7. [Best Practices](#best-practices)
+8. [Documentation](#documentation)
+9. [Extending the Application](#extending-the-application)
+10. [External Resources](#external-resources)
+11. [Last Updated](#last-updated)
 
 ## Prerequisites
 
-- Node.js (v14 or higher)
-- MongoDB (v4 or higher)
-- Internet connection (for production mode)
+### System Requirements
+
+- **Node.js**: Version 20 or higher
+- **Package Manager**: pnpm (recommended) or npm
+- **Operating System**: Windows (required for desktop report paths and BAT files)
+- **Git**: Installed and available in PATH
+
+### Knowledge Prerequisites
+
+- Basic understanding of command line/terminal
+- Familiarity with `package.json` and dependency management
+
+## Initial Setup
+
+### 1. Install Dependencies
+
+**Using pnpm (recommended):**
+
+```bash
+pnpm install
+```
+
+**Using npm:**
+
+```bash
+npm install
+```
+
+### 2. Build the Project
+
+```bash
+pnpm build
+```
 
 ## Configuration
 
-### Main Settings
+### Project List Configuration
 
-Open `src/settings/settings.js` and configure according to your needs:
+The application expects a JSON file at `C:\Or\web\project-repos-names.json`.
 
-#### Production vs Development Mode
+**Schema:**
 
-- `IS_PRODUCTION_MODE`: Set to `true` for real crawling with Puppeteer, `false` for testing with local sources
-- **Important**: Run `npm run preload` after changing this setting to install/remove Puppeteer package
-
-#### Goal Settings
-
-- `GOAL_TYPE`: Choose from `EMAIL_ADDRESSES`, `MINUTES`, or `LINKS`
-- `GOAL_VALUE`: Set the target value (e.g., 1000 email addresses, 700 minutes, 500 links)
-
-#### Method Settings
-
-- `IS_LINKS_METHOD_ACTIVE`: Enable/disable link crawling from search engines
-- `IS_CRAWL_METHOD_ACTIVE`: Enable/disable email address extraction from pages
-
-#### MongoDB Settings
-
-- `IS_DROP_COLLECTION`: Set to `true` to clear the database before starting (use for testing)
-- `MONGO_DATABASE_NAME`: Database name (default: `crawl`)
-- `MONGO_DATABASE_COLLECTION_NAME`: Collection name (default: `emailaddresses`)
-
-#### Search Settings
-
-- `SEARCH_KEY`: Set a static search term, or leave as `null` for random search keys
-- `IS_ADVANCE_SEARCH_KEYS`: Use advanced Hebrew search keys (`true`) or basic static keys (`false`)
-
-#### Process Limits
-
-- `MAXIMUM_SEARCH_PROCESSES_COUNT`: Number of processes to run (default: 10000 for long runs)
-- `MAXIMUM_SEARCH_ENGINE_PAGES_PER_PROCESS_COUNT`: Pages to crawl per process (default: 1)
-- `MAXIMUM_MINUTES_WITHOUT_UPDATE`: Restart if no progress for X minutes (default: 20)
-
-#### Logging Options
-
-- `IS_LOG_VALID_EMAIL_ADDRESSES`: Log valid emails to TXT file
-- `IS_LOG_FIX_EMAIL_ADDRESSES`: Log fixed emails to TXT file
-- `IS_LOG_INVALID_EMAIL_ADDRESSES`: Log invalid emails to TXT file
-- `IS_LOG_CRAWL_LINKS`: Log crawled links to TXT file
-
-### Search Engines Configuration
-
-Edit `src/configurations/files/searchEngines.configuration.js`:
-
-- Configure active search engines (Bing, Google)
-- Set URL patterns and query parameters
-- Enable/disable specific engines
-
-### Search Keys Configuration
-
-Edit `src/configurations/files/searchKeys.configuration.js`:
-
-- `basicSearchKeys`: Static search terms
-- `advanceSearchKeys`: Dynamic Hebrew search key generation rules
-
-### Filter Configurations
-
-#### Email Address Filters
-
-Edit `src/configurations/files/filterEmailAddress.configuration.js`:
-
-- `filterEmailAddressDomains`: Domain parts to filter out
-- `filterEmailAddresses`: Specific email addresses to exclude
-
-#### Link Filters
-
-Edit `src/configurations/files/filterLinkDomains.configuration.js`:
-
-- `globalFilterLinkDomains`: Domains to filter from all search engines
-- `filterLinkDomains`: Search engine-specific domain filters
-
-#### File Extension Filters
-
-Edit `src/configurations/files/filterFileExtensions.configuration.js`:
-
-- `filterLinkFileExtensions`: File extensions to skip when crawling (e.g., `.pdf`, `.jpg`)
-
-### Email Domain Configurations
-
-Edit `src/configurations/files/emailAddressDomainsList.configuration.js`:
-
-- List of common email domains (Gmail, Hotmail, etc.)
-- Typo correction mappings
-- Domain validation rules
-
-## Running Scripts
-
-### Main Crawler (with Monitor)
-
-Starts the crawler with automatic restart on failure:
-
-```bash
-npm start
+```json
+{
+  "repos": [
+    {
+      "name": "project-folder-name",
+      "type": "active"
+    }
+  ]
+}
 ```
 
-This launches the monitor which:
+- **name**: The folder name of the project located under `C:\Or\web\projects\`.
+- **type**: Only repos with `type: "active"` will be processed.
 
-- Shows confirmation screen with current settings
-- Automatically restarts on errors/timeout
-- Tracks progress and statistics
-- Logs all data to `dist/production/` or `dist/development/`
+## Available Commands
 
-### Backup
+### Running Scripts
 
-Creates a backup of the project:
+- `pnpm sync`: Executes the full update cycle (sync, check, update, install, push).
+- `pnpm start`: Runs the application directly using `tsx`.
+- `pnpm build`: Compiles TypeScript to the `dist` folder.
 
-```bash
-npm run backup
-```
+### Development Commands
 
-### Domain Counter
+**Linting and Formatting:**
 
-Counts email address domains from files or MongoDB:
+- `pnpm lint`: Checks code style and quality.
+- `pnpm format`: Formats all TypeScript files.
 
-```bash
-npm run domains
-```
+**Testing:**
 
-### Tests
+- `pnpm test`: Runs all unit tests with Vitest.
+- `pnpm test:coverage`: Generates a test coverage report.
 
-#### Validate Single Email
+## Reporting
 
-Tests email validation logic:
+After each run, a report is generated at:
+`C:\Users\Or Assayag\Desktop\PROJECTS_UPDATES_REPORT.txt`
 
-```bash
-npm run val
-```
+The report includes:
 
-#### Validate Multiple Emails
-
-Validates a batch of email addresses:
-
-```bash
-npm run valmany
-```
-
-#### Debug Email Validation
-
-Runs validation with Node.js inspector:
-
-```bash
-npm run valdebug
-```
-
-#### Test Typos
-
-Tests email typo detection and correction:
-
-```bash
-npm run typos
-```
-
-#### Test Link Crawling
-
-Tests crawling links from a specific page:
-
-```bash
-npm run link
-```
-
-#### Test Session Links
-
-Tests crawling multiple predefined links:
-
-```bash
-npm run session
-```
-
-#### Email Generator Test
-
-Tests random email address generation:
-
-```bash
-npm run generator
-```
-
-#### Test Cases
-
-Runs comprehensive email validation test cases:
-
-```bash
-npm run cases
-```
-
-#### Sandbox
-
-General testing sandbox:
-
-```bash
-npm run sand
-```
-
-## Quick Start Guide
-
-### For Testing (Development Mode)
-
-1. Open `src/settings/settings.js`
-2. Set `IS_PRODUCTION_MODE: false`
-3. Set `GOAL_TYPE: GoalTypeEnum.EMAIL_ADDRESSES`
-4. Set `GOAL_VALUE: 10`
-5. Set `IS_LONG_RUN: false`
-6. Run: `npm start`
-
-### For Production Crawling
-
-1. Open `src/settings/settings.js`
-2. Set `IS_PRODUCTION_MODE: true`
-3. Run: `npm run preload` (installs Puppeteer)
-4. Configure search engines in `searchEngines.configuration.js`
-5. Configure search keys in `searchKeys.configuration.js`
-6. Configure filters as needed
-7. Ensure MongoDB is running
-8. Run: `npm start`
-9. Confirm settings when prompted (type `y`)
-
-## File Structure
-
-### Source Files (`src/`)
-
-- `monitor/monitor.js` - Main entry point with restart monitoring
-- `scripts/crawl.script.js` - Crawling script logic
-- `logics/crawl.logic.js` - Core crawling orchestration
-- `services/` - Business logic services
-- `configurations/` - Configuration files
-- `settings/settings.js` - Main settings file
-- `utils/` - Utility functions
-- `core/` - Models and enums
-
-### Output Files (`dist/`)
-
-Generated files are placed in `dist/production/` or `dist/development/` with date-based subdirectories:
-
-- `valid_email_addresses.txt` - Valid emails found
-- `fix_email_addresses.txt` - Emails that were corrected
-- `invalid_email_addresses.txt` - Invalid emails
-- `crawl_links.txt` - Links crawled
-- `crawl_error_links.txt` - Links that failed
-
-## Understanding the Console Status Line
-
-When running, you'll see a real-time status line with:
-
-```
-===[SETTINGS] Mode: PRODUCTION | Plan: STANDARD | Database: crawl | Drop: false | Long: true | Active Methods: LINKS,CRAWL===
-===[GENERAL] Time: 00.00:00:12 [\] | Goal: MINUTES | Progress: 0/700 (00.00%) | Status: CRAWL | Restarts: 0===
-===[PROCESS] Process: 1/10,000 | Page: 1/1 | Engine: Bing | Key: search term===
-===[LINK] Crawl: ✅  13 | Total: 40 | Filter: 27 | Error: 0 | Error In A Row: 0 | Current: 2/13===
-===[EMAIL ADDRESS] Save: ✅  0 | Total: 2 | Database: 15,915 | Exists: 1 | Invalid: ❌  0 | Valid Fix: 0 | Invalid Fix: 0 | Unsave: 0 | Filter: 0 | Skip: 0 | Gibberish: 0===
-```
-
-- **SETTINGS**: Current mode and configuration
-- **GENERAL**: Runtime, goal progress, current status
-- **PROCESS**: Process number, page number, search engine, search key
-- **LINK**: Link crawling statistics
-- **EMAIL ADDRESS**: Email collection statistics
+- Execution timestamp (Jerusalem time)
+- Total execution time
+- Status of each repository ([UPDATED], [FAILED], [SKIPPED], [NO UPDATES])
+- Detailed list of updated packages and their versions
+- Error messages for failed repositories
+- Summary statistics
 
 ## Troubleshooting
 
-### Application Won't Start
+### Network Issues
 
-- Ensure MongoDB is running: `mongod`
-- Check Node version: `node --version` (should be v14+)
-- Delete `node_modules` and run `npm install` again
+If the app fails with "NPM registry is unreachable", check your internet connection and ensure you can run `npm ping`.
 
-### No Email Addresses Being Found
+### Git Issues
 
-- Check if search engines changed their HTML structure
-- Verify internet connection
-- Check filter configurations (might be too aggressive)
-- Examine `dist/.../crawl_error_links.txt` for errors
+- **Uncommitted Changes**: The app will skip any repository with uncommitted changes for safety.
+- **Merge Conflicts**: If `git pull --rebase` fails, the repository will be marked as [FAILED] in the report.
 
-### Puppeteer Errors
+### Install Failures
 
-- Ensure Chromium dependencies are installed (Linux)
-- Try running with `IS_PRODUCTION_MODE: false` first
-- Check for antivirus interference
+If `npm install` or `pnpm install` fails (e.g., due to peer dependency conflicts), the repository will be marked as [FAILED]. The app uses `--legacy-peer-deps` (NPM) or `--no-strict-peer-dependencies` (PNPM) to minimize these issues.
 
-### MongoDB Connection Errors
+## Best Practices
 
-- Verify MongoDB is running: `mongo` command should work
-- Check connection string in settings
-- Ensure MongoDB port 27017 is not blocked
+- **Verify Configuration**: Ensure your `project-repos-names.json` is correctly formatted and paths are accessible.
+- **Run Tests Regularly**: Execute `pnpm test` after any architectural changes to ensure no regressions.
+- **Review Reports**: Always check the execution report generated on your desktop for detailed status.
+- **Git Safety**: Keep your repositories clean (no uncommitted changes) to allow the automation to work smoothly.
 
-### Application Keeps Restarting
+## Documentation
 
-- Check `MAXIMUM_MINUTES_WITHOUT_UPDATE` setting
-- Increase timeout values if network is slow
-- Review error logs in dist directory
+- **README.md**: High-level overview, features, and quick start guide.
+- **INSTRUCTIONS.md**: Comprehensive setup, usage, and development guide.
+- **CHANGELOG.md**: Record of all notable changes to the project.
+- **CODE_OF_CONDUCT.md**: Guidelines for community interaction.
 
-## Important Notes
+## Extending the Application
 
-- Always run `npm run preload` when switching between production and development modes
-- The application automatically restarts on errors (up to 50 times)
-- All email addresses are validated and can be auto-corrected for common typos
-- Gibberish detection is enabled by default to filter out invalid data
-- Links are filtered to avoid duplicates and unwanted domains
-- Downloads folder is automatically cleaned between processes
+To add new functionality to the updater:
+
+1. **Define Interface**: Create a new interface in `src/interfaces/`.
+2. **Implement Service**: Create the service implementation in `src/services/`.
+3. **Register Service**: Add the service to the InversifyJS container in `src/container/container.ts`.
+4. **Update Main Logic**: Integrate the new service into `src/services/updater.service.ts` or `src/index.ts`.
+5. **Add Tests**: Create corresponding tests in `src/__tests__/`.
+
+## External Resources
+
+- [InversifyJS](https://inversify.io/) - Powerful dependency injection for TypeScript.
+- [Zod](https://zod.dev/) - TypeScript-first schema declaration and validation.
+- [Vitest](https://vitest.dev/) - Next generation testing framework.
+- [pnpm](https://pnpm.io/) - Fast, disk space efficient package manager.
+
+## Last Updated
+
+May 20, 2026
 
 ## Author
 

@@ -1,5 +1,5 @@
 {
-  "cSpell.words": ["Assayag", "orassayag", "msvc"],
+  "cSpell.words": ["Assayag", "lifecycles", "msvc", "orassayag", "syncer"],
   "cSpell.ignorePaths": [
     "coverage",
     "node_modules",
