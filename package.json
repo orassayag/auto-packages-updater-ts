@@ -1,0 +1,109 @@
+{
+  "name": "auto-packages-updater-ts",
+  "version": "1.0.0",
+  "description": "A Node.js automation tool to scan multiple projects for outdated NPM/PNPM packages and automatically update them with Git integration. This application reads project configurations from an external JSON file, checks for the packages across multiple projects simultaneously, generates detailed report",
+  "type": "module",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/orassayag/auto-packages-updater-ts.git"
+  },
+  "keywords": [
+    "nodejs",
+    "automation",
+    "npm",
+    "pnpm",
+    "package-updater",
+    "dependency-checker",
+    "outdated-packages",
+    "git-integration",
+    "version-management",
+    "project-scanner",
+    "multi-project",
+    "json-config",
+    "report-generation",
+    "dependency-updates",
+    "devtools",
+    "ci-ready",
+    "local-development",
+    "repository",
+    "maintenance",
+    "update-tool"
+  ],
+  "main": "dist/index.js",
+  "scripts": {
+    "lint": "eslint \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "start": "tsx src/index.ts",
+    "start:live": "cross-env DRY_MODE=false tsx src/index.ts",
+    "start:no-cache": "tsx src/index.ts --no-cache",
+    "sync": "tsx src/index.ts --auto",
+    "dev": "tsx watch src/index.ts",
+    "test": "cross-env NODE_OPTIONS='--no-warnings' vitest run --coverage",
+    "test:watch": "cross-env NODE_OPTIONS='--no-warnings' vitest",
+    "test:no-coverage": "cross-env NODE_OPTIONS='--no-warnings' vitest run",
+    "test:ui": "vitest --ui",
+    "build": "tsc"
+  },
+  "author": "Or Assayag <orassayag@gmail.com>",
+  "contributors": [
+    {
+      "name": "Or Assayag",
+      "email": "orassayag@gmail.com",
+      "url": "https://github.com/orassayag"
+    }
+  ],
+  "files": [
+    ".vscode",
+    "dist",
+    "src",
+    ".gitignore",
+    ".prettierrc",
+    "eslint.config.mjs",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "INSTRUCTIONS.md",
+    "CHANGELOG.md",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "README.md",
+    "tsconfig.json",
+    "vitest.config.ts"
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/orassayag/auto-packages-updater-ts/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/orassayag"
+  },
+  "homepage": "https://github.com/orassayag/auto-packages-updater-ts#readme",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@rolldown/binding-win32-x64-msvc": "^1.0.2",
+    "@types/node": "^25.9.1",
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
+    "@typescript-eslint/parser": "^8.59.4",
+    "@vitest/coverage-istanbul": "^4.1.7",
+    "@vitest/ui": "^4.1.7",
+    "cross-env": "^10.1.0",
+    "eslint": "^10.4.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.3",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.4",
+    "vitest": "^4.1.7"
+  }
+}
