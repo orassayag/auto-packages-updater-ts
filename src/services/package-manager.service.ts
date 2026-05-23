@@ -76,7 +76,7 @@ export class PackageManagerService implements IPackageManagerService {
     const args =
       packageManager === 'npm'
         ? ['install', '--legacy-peer-deps']
-        : ['install', '--no-strict-peer-dependencies'];
+        : ['install', '--no-strict-peer-dependencies', '--no-frozen-lockfile'];
 
     try {
       await execa(command, args, {

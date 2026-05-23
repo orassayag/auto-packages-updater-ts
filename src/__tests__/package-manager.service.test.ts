@@ -90,7 +90,7 @@ describe('PackageManagerService', () => {
       await pmService.install('path', 'pnpm');
       expect(execa).toHaveBeenCalledWith(
         'pnpm',
-        ['install', '--no-strict-peer-dependencies'],
+        ['install', '--no-strict-peer-dependencies', '--no-frozen-lockfile'],
         expect.any(Object)
       );
     });
