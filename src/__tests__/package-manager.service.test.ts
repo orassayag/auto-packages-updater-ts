@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'fs-extra';
 import { execa } from 'execa';
+import latestVersion from 'latest-version';
 import { PackageManagerService } from '../services/package-manager.service.js';
 
 vi.mock('fs-extra');
 vi.mock('execa');
+vi.mock('latest-version');
 
 describe('PackageManagerService', () => {
   let pmService: PackageManagerService;
@@ -61,27 +63,53 @@ describe('PackageManagerService', () => {
   });
 
   describe('getOutdatedPackages', () => {
-    it('should return parsed JSON output', async (): Promise<void> => {
-      vi.mocked(execa).mockResolvedValue({
-        stdout: JSON.stringify({
-          pkg: { current: '1', wanted: '2', latest: '2' },
-        }),
-      } as any);
+    it('should return outdated packages when newer versions exist', async (): Promise<void> => {
+      vi.mocked(
+        fs.pathExists as (p: string) => Promise<boolean>
+      ).mockResolvedValue(true);
+      vi.mocked(fs.readJson).mockResolvedValue({
+        dependencies: {
+          pkg1: '^1.0.0',
+        },
+      });
+      vi.mocked(latestVersion).mockResolvedValue('2.0.0');
+
       const result = await pmService.getOutdatedPackages('path', 'npm');
-      expect(result.pkg.latest).toBe('2');
+      expect(result.pkg1.latest).toBe('2.0.0');
+      expect(result.pkg1.current).toBe('1.0.0');
     });
 
-    it('should throw error if JSON is invalid', async (): Promise<void> => {
-      vi.mocked(execa).mockResolvedValue({ stdout: 'invalid json' } as any);
-      await expect(
-        pmService.getOutdatedPackages('path', 'npm')
-      ).rejects.toThrow('Failed to parse');
-    });
+    it('should return empty object if all packages are up to date', async (): Promise<void> => {
+      vi.mocked(
+        fs.pathExists as (p: string) => Promise<boolean>
+      ).mockResolvedValue(true);
+      vi.mocked(fs.readJson).mockResolvedValue({
+        dependencies: {
+          pkg1: '^2.0.0',
+        },
+      });
+      vi.mocked(latestVersion).mockResolvedValue('2.0.0');
 
-    it('should return empty object if no output', async (): Promise<void> => {
-      vi.mocked(execa).mockResolvedValue({ stdout: '' } as any);
       const result = await pmService.getOutdatedPackages('path', 'npm');
       expect(result).toEqual({});
+    });
+
+    it('should return empty object if package.json does not exist', async (): Promise<void> => {
+      vi.mocked(
+        fs.pathExists as (p: string) => Promise<boolean>
+      ).mockResolvedValue(false);
+      const result = await pmService.getOutdatedPackages('path', 'npm');
+      expect(result).toEqual({});
+    });
+
+    it('should throw error if package.json is invalid', async (): Promise<void> => {
+      vi.mocked(
+        fs.pathExists as (p: string) => Promise<boolean>
+      ).mockResolvedValue(true);
+      vi.mocked(fs.readJson).mockRejectedValue(new Error('invalid json'));
+      await expect(
+        pmService.getOutdatedPackages('path', 'npm')
+      ).rejects.toThrow('Failed to check outdated packages');
     });
   });
 

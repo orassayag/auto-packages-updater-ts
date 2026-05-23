@@ -2,14 +2,13 @@ import { injectable } from 'inversify';
 import fs from 'fs-extra';
 import path from 'path';
 import { execa } from 'execa';
+import latestVersion from 'latest-version';
+import semver from 'semver';
 import {
   IPackageManagerService,
   PackageManager,
 } from '../interfaces/IPackageManagerService.js';
-import {
-  OutdatedOutput,
-  OutdatedOutputSchema,
-} from '../schemas/outdated.schema.js';
+import { OutdatedOutput } from '../schemas/outdated.schema.js';
 
 @injectable()
 export class PackageManagerService implements IPackageManagerService {
@@ -40,31 +39,58 @@ export class PackageManagerService implements IPackageManagerService {
 
   async getOutdatedPackages(
     repoPath: string,
-    packageManager: PackageManager
+    _packageManager: PackageManager
   ): Promise<OutdatedOutput> {
-    const command = packageManager === 'npm' ? 'npm' : 'pnpm';
-    const args = ['outdated', '--json'];
+    const packageJsonPath = path.join(repoPath, 'package.json');
+    if (!(await fs.pathExists(packageJsonPath))) {
+      return {};
+    }
 
     try {
-      const { stdout } = await execa(command, args, {
-        cwd: repoPath,
-        reject: false,
-        env: { ...process.env, CI: 'true' },
-      });
-      if (!stdout || stdout.trim() === '') {
-        return {};
-      }
+      const packageJson = await fs.readJson(packageJsonPath);
+      const dependencies = {
+        ...(packageJson.dependencies || {}),
+        ...(packageJson.devDependencies || {}),
+      };
 
-      try {
-        const rawJson = JSON.parse(stdout);
-        return OutdatedOutputSchema.parse(rawJson);
-      } catch (parseError: any) {
-        throw new Error(
-          `Failed to parse ${command} outdated JSON output. Output starts with: ${stdout.substring(0, 100)}...`
-        );
-      }
+      const outdated: OutdatedOutput = {};
+      const packageNames = Object.keys(dependencies);
+
+      await Promise.all(
+        packageNames.map(async (pkgName) => {
+          try {
+            const currentRange = dependencies[pkgName];
+
+            // Skip non-version dependencies (workspace, file, git, etc.)
+            if (
+              currentRange.startsWith('workspace:') ||
+              currentRange.startsWith('file:') ||
+              currentRange.startsWith('git+') ||
+              currentRange.startsWith('github:') ||
+              currentRange.startsWith('http')
+            ) {
+              return;
+            }
+
+            const latest = await latestVersion(pkgName);
+            const minCurrent = semver.minVersion(currentRange)?.version;
+
+            if (minCurrent && semver.gt(latest, minCurrent)) {
+              outdated[pkgName] = {
+                current: minCurrent,
+                wanted: latest,
+                latest: latest,
+              };
+            }
+          } catch (_error) {
+            // Skip packages that fail to fetch (e.g., private packages without access)
+          }
+        })
+      );
+
+      return outdated;
     } catch (error: any) {
-      throw error;
+      throw new Error(`Failed to check outdated packages: ${error.message}`);
     }
   }
 
