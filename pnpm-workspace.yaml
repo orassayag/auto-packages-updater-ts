@@ -13,3 +13,4 @@ minimumReleaseAgeExclude:
   - '@vitest/ui@4.1.7'
   - '@vitest/utils@4.1.7'
   - vitest@4.1.7
+  - date-fns@4.3.0
