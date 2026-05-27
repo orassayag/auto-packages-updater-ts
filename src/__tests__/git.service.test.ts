@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { execa } from 'execa';
 import { GitService } from '../services/git.service.js';
+import { createMockLogger } from './mocks/logger.mock.js';
 
 vi.mock('execa');
 
@@ -8,7 +9,7 @@ describe('GitService', () => {
   let gitService: GitService;
 
   beforeEach((): void => {
-    gitService = new GitService();
+    gitService = new GitService(createMockLogger());
     vi.clearAllMocks();
   });
 

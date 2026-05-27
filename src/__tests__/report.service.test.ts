@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'fs-extra';
 import { ReportService } from '../services/report.service.js';
+import { createMockLogger } from './mocks/logger.mock.js';
 
 vi.mock('fs-extra');
 vi.mock('date-fns-tz', () => ({
@@ -11,7 +12,7 @@ describe('ReportService', () => {
   let reportService: ReportService;
 
   beforeEach((): void => {
-    reportService = new ReportService();
+    reportService = new ReportService(createMockLogger());
     vi.clearAllMocks();
   });
 

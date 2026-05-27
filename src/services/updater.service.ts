@@ -9,6 +9,7 @@ import { IPackageManagerService } from '../interfaces/IPackageManagerService.js'
 import { IReportService } from '../interfaces/IReportService.js';
 import { IValidationService } from '../interfaces/IValidationService.js';
 import { IRepoService } from '../interfaces/IRepoService.js';
+import { ILogger } from '../interfaces/ILogger.js';
 import { Repo } from '../schemas/repo.schema.js';
 
 @injectable()
@@ -24,20 +25,27 @@ export class UpdaterService implements IUpdaterService {
     private readonly reportService: IReportService,
     @inject(TYPES.IValidationService)
     private readonly validationService: IValidationService,
-    @inject(TYPES.IRepoService) private readonly repoService: IRepoService
-  ) {}
+    @inject(TYPES.IRepoService) private readonly repoService: IRepoService,
+    @inject(TYPES.ILogger) private readonly logger: ILogger
+  ) {
+    this.logger.setContext('UpdaterService');
+  }
 
   /**
    * Runs the auto-package update process for all active repositories.
    */
   async run(): Promise<void> {
     const startTime = new Date();
+    this.logger.info('Starting Auto Packages Updater...');
     console.log(chalk.cyan('Starting Auto Packages Updater...\n'));
 
     try {
+      this.logger.debug('Checking network connection...');
       await this.validationService.checkNetwork();
 
+      this.logger.debug('Fetching active repositories...');
       let repos = await this.repoService.getActiveRepos();
+      this.logger.info(`Found ${repos.length} active repositories.`);
       repos = this.sortRepos(repos);
 
       for (let i = 0; i < repos.length; i++) {
@@ -45,6 +53,7 @@ export class UpdaterService implements IUpdaterService {
         await this.processRepo(repo, i + 1, repos.length);
       }
 
+      this.logger.info('Generating final report...');
       await this.reportService.generateReport(startTime);
       console.log(
         chalk.green('\nProcess finished. Report generated on Desktop.')
@@ -52,6 +61,7 @@ export class UpdaterService implements IUpdaterService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+      this.logger.error('Fatal error in UpdaterService.run()', error as Error);
       console.error(chalk.red(`\nFatal error: ${errorMessage}`));
       process.exit(1);
     }
@@ -78,11 +88,15 @@ export class UpdaterService implements IUpdaterService {
     };
 
     updateSpinner('Validating...');
+    this.logger.info(`Processing repository: ${repo.name}`, { repoPath });
 
     try {
       await this.validationService.validateRepo(repoPath);
 
       if (await this.gitService.hasUncommittedChanges(repoPath)) {
+        this.logger.warn(
+          `Skipping ${repo.name}: Uncommitted changes detected.`
+        );
         spinner.warn(
           `[${index}/${total}] ${repo.name} - Skipped (Uncommitted changes)`
         );
@@ -97,6 +111,7 @@ export class UpdaterService implements IUpdaterService {
 
       const pm =
         await this.packageManagerService.detectPackageManager(repoPath);
+      this.logger.debug(`Detected package manager for ${repo.name}: ${pm}`);
 
       updateSpinner(`Syncing (git pull)...`);
       await this.gitService.pull(repoPath);
@@ -106,12 +121,20 @@ export class UpdaterService implements IUpdaterService {
         repoPath,
         pm
       );
+      this.logger.debug(
+        `Found ${Object.keys(outdated).length} outdated packages in ${repo.name}`
+      );
 
       const filteredUpdates: Record<string, string> = {};
       const updateDetails: string[] = [];
 
       for (const [pkg, info] of Object.entries(outdated)) {
-        if (this.shouldSkipPackage(info.latest)) continue;
+        if (this.shouldSkipPackage(info.latest)) {
+          this.logger.debug(
+            `Skipping package update for ${pkg}: special version format (${info.latest})`
+          );
+          continue;
+        }
 
         filteredUpdates[pkg] = info.latest;
         updateDetails.push(
@@ -120,6 +143,7 @@ export class UpdaterService implements IUpdaterService {
       }
 
       if (updateDetails.length === 0) {
+        this.logger.info(`No eligible updates found for ${repo.name}`);
         const duration = Math.floor((Date.now() - startTime) / 1000);
         spinner.succeed(
           `[${index}/${total}] ${repo.name} (${duration}s) - No updates found`
@@ -135,6 +159,10 @@ export class UpdaterService implements IUpdaterService {
 
       // Display outdated packages in console as per requirement
       spinner.stop();
+      this.logger.info(
+        `Updating ${updateDetails.length} packages in ${repo.name}`,
+        { updates: filteredUpdates }
+      );
       console.log(
         `[${chalk.blue(index)}/${chalk.blue(total)}] ${chalk.bold(repo.name)}`
       );
@@ -156,6 +184,7 @@ export class UpdaterService implements IUpdaterService {
       await this.gitService.push(repoPath);
 
       const duration = Math.floor((Date.now() - startTime) / 1000);
+      this.logger.info(`Successfully updated ${repo.name} in ${duration}s`);
       spinner.succeed(
         `[${index}/${total}] ${repo.name} (${duration}s) - Updated ${updateDetails.length} packages`
       );
@@ -169,6 +198,10 @@ export class UpdaterService implements IUpdaterService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Error processing repository ${repo.name}`,
+        error as Error
+      );
       const duration = Math.floor((Date.now() - startTime) / 1000);
       spinner.fail(`[${index}/${total}] ${repo.name} (${duration}s) - Failed`);
       console.error(chalk.red(`  Error: ${errorMessage}`));

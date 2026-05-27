@@ -1,7 +1,9 @@
-import { injectable } from 'inversify';
+import { injectable, inject } from 'inversify';
 import fs from 'fs-extra';
 import { formatInTimeZone } from 'date-fns-tz';
+import { TYPES } from '../constants/types.js';
 import { IReportService, IReportEntry } from '../interfaces/IReportService.js';
+import { ILogger } from '../interfaces/ILogger.js';
 
 @injectable()
 export class ReportService implements IReportService {
@@ -10,7 +12,14 @@ export class ReportService implements IReportService {
     'C:\\Users\\Or Assayag\\Desktop\\PROJECTS_UPDATES_REPORT.txt';
   private readonly TIMEZONE = 'Asia/Jerusalem';
 
+  constructor(@inject(TYPES.ILogger) private readonly logger: ILogger) {
+    this.logger.setContext('ReportService');
+  }
+
   addEntry(entry: IReportEntry): void {
+    this.logger.debug(`Adding report entry for ${entry.repoName}`, {
+      status: entry.status,
+    });
     this.entries.push(entry);
   }
 
@@ -81,7 +90,17 @@ export class ReportService implements IReportService {
     content += `Total repos failed: ${totalFailed}\n`;
     content += `Execution time: ${totalDurationStr}\n`;
 
-    await fs.writeFile(this.REPORT_PATH, content, 'utf8');
+    try {
+      this.logger.debug(`Writing report to ${this.REPORT_PATH}`);
+      await fs.writeFile(this.REPORT_PATH, content, 'utf8');
+      this.logger.info(`Report generated successfully at ${this.REPORT_PATH}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to generate report at ${this.REPORT_PATH}`,
+        error as Error
+      );
+      throw error;
+    }
   }
 
   private formatDuration(seconds: number): string {

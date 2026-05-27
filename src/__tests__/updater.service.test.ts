@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 import { UpdaterService } from '../services/updater.service.js';
+import { createMockLogger } from './mocks/logger.mock.js';
 import { IGitService } from '../interfaces/IGitService.js';
 import { IPackageManagerService } from '../interfaces/IPackageManagerService.js';
 import { IReportService } from '../interfaces/IReportService.js';
@@ -48,7 +49,8 @@ describe('UpdaterService', () => {
       pmService,
       reportService,
       validationService,
-      repoService
+      repoService,
+      createMockLogger()
     );
 
     // Silence console logs

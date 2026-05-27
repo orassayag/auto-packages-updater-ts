@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
-const RepoSchema = z.object({
+export const RepoSchema = z.object({
   name: z.string(),
   type: z.string(),
 });
+
+export type Repo = z.infer<typeof RepoSchema>;
 
 export const ReposFileSchema = z.array(RepoSchema);

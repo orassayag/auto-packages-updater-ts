@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'fs-extra';
 import { RepoService } from '../services/repo.service.js';
+import { createMockLogger } from './mocks/logger.mock.js';
 
 vi.mock('fs-extra');
 
@@ -8,7 +9,7 @@ describe('RepoService', () => {
   let repoService: RepoService;
 
   beforeEach((): void => {
-    repoService = new RepoService();
+    repoService = new RepoService(createMockLogger());
     vi.clearAllMocks();
   });
 

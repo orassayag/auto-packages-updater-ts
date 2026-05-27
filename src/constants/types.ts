@@ -5,4 +5,5 @@ export const TYPES = {
   IValidationService: Symbol.for('IValidationService'),
   IUpdaterService: Symbol.for('IUpdaterService'),
   IRepoService: Symbol.for('IRepoService'),
+  ILogger: Symbol.for('ILogger'),
 };

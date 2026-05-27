@@ -3,6 +3,7 @@ import fs from 'fs-extra';
 import { execa } from 'execa';
 import latestVersion from 'latest-version';
 import { PackageManagerService } from '../services/package-manager.service.js';
+import { createMockLogger } from './mocks/logger.mock.js';
 
 vi.mock('fs-extra');
 vi.mock('execa');
@@ -12,7 +13,7 @@ describe('PackageManagerService', () => {
   let pmService: PackageManagerService;
 
   beforeEach((): void => {
-    pmService = new PackageManagerService();
+    pmService = new PackageManagerService(createMockLogger());
     vi.clearAllMocks();
   });
 

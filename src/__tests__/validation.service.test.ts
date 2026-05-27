@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'fs-extra';
 import { execa } from 'execa';
 import { ValidationService } from '../services/validation.service.js';
+import { createMockLogger } from './mocks/logger.mock.js';
 
 vi.mock('fs-extra');
 vi.mock('execa');
@@ -10,7 +11,7 @@ describe('ValidationService', () => {
   let validationService: ValidationService;
 
   beforeEach((): void => {
-    validationService = new ValidationService();
+    validationService = new ValidationService(createMockLogger());
     vi.clearAllMocks();
   });
 
