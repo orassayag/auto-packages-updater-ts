@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs-extra';
 import { execa } from 'execa';
 import latestVersion from 'latest-version';
@@ -115,22 +115,118 @@ describe('PackageManagerService', () => {
   });
 
   describe('install', () => {
-    it('should call pnpm install with correct args', async (): Promise<void> => {
-      await pmService.install('path', 'pnpm');
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should call pnpm install with correct args and retry on network error', async (): Promise<void> => {
+      vi.mocked(execa)
+        .mockRejectedValueOnce(new Error('ECONNRESET'))
+        .mockResolvedValueOnce({} as any);
+
+      const promise = pmService.install('path', 'pnpm');
+
+      // First attempt fails, wait for delay
+      await vi.runAllTimersAsync();
+
+      await promise;
+
+      expect(execa).toHaveBeenCalledTimes(2);
       expect(execa).toHaveBeenCalledWith(
         'pnpm',
-        ['install', '--no-strict-peer-dependencies', '--no-frozen-lockfile'],
-        expect.any(Object)
+        [
+          'install',
+          '--no-strict-peer-dependencies',
+          '--no-frozen-lockfile',
+          '--fetch-retries',
+          '5',
+          '--fetch-retry-mintimeout',
+          '10000',
+          '--fetch-retry-maxtimeout',
+          '60000',
+          '--network-concurrency',
+          '4',
+        ],
+        expect.objectContaining({
+          timeout: 600000,
+        })
       );
     });
 
+    it('should throw error after max attempts', async (): Promise<void> => {
+      vi.mocked(execa).mockRejectedValue(new Error('ECONNRESET'));
+
+      const promise = pmService.install('path', 'pnpm');
+
+      // Start expecting the rejection before triggering the timers
+      const rejectionExpectation = expect(promise).rejects.toThrow(
+        'pnpm install failed'
+      );
+
+      // Trigger all retries
+      await vi.runAllTimersAsync();
+
+      await rejectionExpectation;
+      expect(execa).toHaveBeenCalledTimes(3);
+    });
+
+    it('should not retry on non-network error', async (): Promise<void> => {
+      vi.mocked(execa).mockRejectedValue(new Error('Some other error'));
+
+      await expect(pmService.install('path', 'pnpm')).rejects.toThrow(
+        'pnpm install failed'
+      );
+      expect(execa).toHaveBeenCalledTimes(1);
+    });
+
     it('should call npm install with correct args', async (): Promise<void> => {
+      vi.mocked(execa).mockResolvedValue({} as any);
       await pmService.install('path', 'npm');
       expect(execa).toHaveBeenCalledWith(
         'npm',
         ['install', '--legacy-peer-deps'],
         expect.any(Object)
       );
+    });
+  });
+
+  describe('ensureNpmrc', () => {
+    it('should create .npmrc if it does not exist', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(false);
+
+      await pmService.ensureNpmrc('path');
+
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('.npmrc'),
+        expect.stringContaining('fetch-retries=5')
+      );
+    });
+
+    it('should append missing settings to existing .npmrc', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readFile as any).mockResolvedValue('existing=value\n');
+
+      await pmService.ensureNpmrc('path');
+
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('.npmrc'),
+        expect.stringContaining('existing=value\nfetch-retries=5')
+      );
+    });
+
+    it('should not update if all settings exist', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readFile as any).mockResolvedValue(
+        'fetch-retries=5\nfetch-retry-mintimeout=10000\nfetch-retry-maxtimeout=60000\nnetwork-concurrency=4\n'
+      );
+
+      await pmService.ensureNpmrc('path');
+
+      expect(fs.writeFile).not.toHaveBeenCalled();
     });
   });
 

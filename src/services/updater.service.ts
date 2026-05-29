@@ -175,6 +175,11 @@ export class UpdaterService implements IUpdaterService {
         filteredUpdates
       );
 
+      if (pm === 'pnpm') {
+        updateSpinner(`Ensuring .npmrc...`);
+        await this.packageManagerService.ensureNpmrc(repoPath);
+      }
+
       updateSpinner(`Installing dependencies (${pm})...`);
       await this.packageManagerService.install(repoPath, pm);
 

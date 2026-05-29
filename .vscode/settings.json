@@ -1,5 +1,17 @@
 {
-  "cSpell.words": ["Assayag", "lifecycles", "msvc", "orassayag", "syncer"],
+  "cSpell.words": [
+    "Assayag",
+    "ECONNRESET",
+    "ENOTFOUND",
+    "lifecycles",
+    "maxtimeout",
+    "mintimeout",
+    "msvc",
+    "npmjs",
+    "orassayag",
+    "pkgr",
+    "syncer"
+  ],
   "cSpell.ignorePaths": [
     "coverage",
     "node_modules",

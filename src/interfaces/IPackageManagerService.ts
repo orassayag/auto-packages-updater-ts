@@ -33,6 +33,12 @@ export interface IPackageManagerService {
   install(repoPath: string, packageManager: PackageManager): Promise<void>;
 
   /**
+   * Ensures .npmrc exists with network resilience settings for pnpm.
+   * @param repoPath Path to the repository.
+   */
+  ensureNpmrc(repoPath: string): Promise<void>;
+
+  /**
    * Updates package.json with the provided package versions.
    * @param repoPath Path to the repository.
    * @param updates Record of package names and their new versions.

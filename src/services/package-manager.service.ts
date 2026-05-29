@@ -127,29 +127,96 @@ export class PackageManagerService implements IPackageManagerService {
     packageManager: PackageManager
   ): Promise<void> {
     const command = packageManager === 'npm' ? 'npm' : 'pnpm';
-    const args =
+    const baseArgs =
       packageManager === 'npm'
         ? ['install', '--legacy-peer-deps']
-        : ['install', '--no-strict-peer-dependencies', '--no-frozen-lockfile'];
+        : [
+            'install',
+            '--no-strict-peer-dependencies',
+            '--no-frozen-lockfile',
+            '--fetch-retries',
+            '5',
+            '--fetch-retry-mintimeout',
+            '10000',
+            '--fetch-retry-maxtimeout',
+            '60000',
+            '--network-concurrency',
+            '4',
+          ];
 
-    this.logger.info(`Running ${command} ${args.join(' ')} in ${repoPath}`);
+    const maxAttempts = 3;
+    const timeout = 10 * 60 * 1000; // 10 minutes
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      this.logger.info(
+        `Running ${command} ${baseArgs.join(' ')} in ${repoPath} (Attempt ${attempt}/${maxAttempts})`
+      );
+
+      try {
+        await execa(command, baseArgs, {
+          cwd: repoPath,
+          timeout,
+          env: { ...process.env, CI: 'true' },
+        });
+        this.logger.debug(
+          `${command} install completed successfully in ${repoPath}`
+        );
+        return;
+      } catch (error: any) {
+        const isNetworkError =
+          error.message?.includes('ECONNRESET') ||
+          error.message?.includes('ENOTFOUND') ||
+          error.message?.includes('META_FETCH_FAIL') ||
+          error.message?.includes('timed out');
+
+        if (attempt === maxAttempts || !isNetworkError) {
+          this.logger.error(
+            `${command} install failed in ${repoPath} after ${attempt} attempts`,
+            error as Error
+          );
+          throw new Error(
+            `${command} install failed: ${error.stderr || error.message}`
+          );
+        }
+
+        const delay = attempt * 5000;
+        this.logger.warn(
+          `[${command} install] Attempt ${attempt} failed (network error). Retrying in ${delay / 1000}s...`
+        );
+        await new Promise((res) => setTimeout(res, delay));
+      }
+    }
+  }
+
+  async ensureNpmrc(repoPath: string): Promise<void> {
+    this.logger.debug(`Ensuring .npmrc with network settings in ${repoPath}`);
+    const npmrcPath = path.join(repoPath, '.npmrc');
+    const requiredSettings = [
+      'fetch-retries=5',
+      'fetch-retry-mintimeout=10000',
+      'fetch-retry-maxtimeout=60000',
+      'network-concurrency=4',
+    ];
+
     try {
-      await execa(command, args, {
-        cwd: repoPath,
-        timeout: 120000,
-        env: { ...process.env, CI: 'true' },
-      });
-      this.logger.debug(
-        `${command} install completed successfully in ${repoPath}`
+      const existing = (await fs.pathExists(npmrcPath))
+        ? await fs.readFile(npmrcPath, 'utf-8')
+        : '';
+
+      const toAppend = requiredSettings.filter(
+        (line) => !existing.includes(line.split('=')[0])
       );
+
+      if (toAppend.length > 0) {
+        const newContent = [existing.trim(), ...toAppend]
+          .filter(Boolean)
+          .join('\n');
+        await fs.writeFile(npmrcPath, newContent + '\n');
+        this.logger.debug(`Updated .npmrc in ${repoPath}`);
+      }
     } catch (error: any) {
-      this.logger.error(
-        `${command} install failed in ${repoPath}`,
-        error as Error
-      );
-      throw new Error(
-        `${command} install failed: ${error.stderr || error.message}`
-      );
+      this.logger.error(`Failed to update .npmrc in ${repoPath}`, error);
+      // Don't throw here, as it's not a fatal error for the install process
     }
   }
 
