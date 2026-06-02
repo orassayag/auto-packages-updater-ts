@@ -11,6 +11,7 @@ describe('GitService', () => {
   beforeEach((): void => {
     gitService = new GitService(createMockLogger());
     vi.clearAllMocks();
+    vi.mocked(execa).mockResolvedValue({} as any);
   });
 
   it('should call git pull --rebase', async (): Promise<void> => {
