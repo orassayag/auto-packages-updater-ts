@@ -47,8 +47,69 @@ export class PackageManagerService implements IPackageManagerService {
     }
 
     this.logger.debug(`Defaulting to npm for ${repoPath}`);
-    return 'npm'; // Default to npm
+    return 'npm';
   }
+
+  // ─── Fix 1: age-gate helpers ────────────────────────────────────────────────
+
+  /**
+   * Fetches the exact publish timestamp for a specific package version from the
+   * npm registry. Returns null when the information cannot be retrieved so the
+   * caller can decide whether to allow the version through.
+   */
+  private async getPackagePublishTime(
+    pkgName: string,
+    version: string
+  ): Promise<Date | null> {
+    try {
+      const { stdout } = await execa(
+        'npm',
+        ['view', `${pkgName}@${version}`, 'time', '--json'],
+        { timeout: 15_000 }
+      );
+      const timeData = JSON.parse(stdout);
+      const publishTime = timeData[version];
+      return publishTime ? new Date(publishTime) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Returns true when the package version is old enough to pass pnpm's
+   * minimumReleaseAge supply-chain policy.  We use 25 hours as the threshold
+   * (slightly above the typical 24-hour window) to avoid borderline cases.
+   * When the publish time cannot be fetched we allow the version through so
+   * that private/internal packages are not silently skipped.
+   */
+  private async isPackageMatureEnough(
+    pkgName: string,
+    version: string,
+    minimumAgeHours = 25
+  ): Promise<boolean> {
+    const publishTime = await this.getPackagePublishTime(pkgName, version);
+
+    if (!publishTime) {
+      this.logger.debug(
+        `Could not fetch publish time for ${pkgName}@${version} — allowing through`
+      );
+      return true;
+    }
+
+    const ageHours = (Date.now() - publishTime.getTime()) / 3_600_000;
+
+    if (ageHours < minimumAgeHours) {
+      this.logger.warn(
+        `Skipping ${pkgName}@${version}: published only ${ageHours.toFixed(1)}h ago ` +
+          `(minimum: ${minimumAgeHours}h). Will be picked up on the next run.`
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
 
   async getOutdatedPackages(
     repoPath: string,
@@ -94,10 +155,18 @@ export class PackageManagerService implements IPackageManagerService {
             const minCurrent = semver.minVersion(currentRange)?.version;
 
             if (minCurrent && semver.gt(latest, minCurrent)) {
+              // ── Fix 1: skip packages published too recently ──────────────
+              const mature = await this.isPackageMatureEnough(pkgName, latest);
+              if (!mature) {
+                // isPackageMatureEnough already logs the warning
+                return;
+              }
+              // ─────────────────────────────────────────────────────────────
+
               outdated[pkgName] = {
                 current: minCurrent,
                 wanted: latest,
-                latest: latest,
+                latest,
               };
               this.logger.debug(
                 `Package ${pkgName} is outdated: ${minCurrent} -> ${latest}`
@@ -105,9 +174,10 @@ export class PackageManagerService implements IPackageManagerService {
             }
           } catch (error) {
             this.logger.debug(
-              `Failed to check version for ${pkgName}: ${error instanceof Error ? error.message : String(error)}`
+              `Failed to check version for ${pkgName}: ${
+                error instanceof Error ? error.message : String(error)
+              }`
             );
-            // Skip packages that fail to fetch (e.g., private packages without access)
           }
         })
       );
@@ -145,7 +215,8 @@ export class PackageManagerService implements IPackageManagerService {
           ];
 
     const maxAttempts = 3;
-    const timeout = 10 * 60 * 1000; // 10 minutes
+    const timeout = 10 * 60 * 1000;
+    let lockfileWasCleaned = false;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       this.logger.info(
@@ -163,11 +234,47 @@ export class PackageManagerService implements IPackageManagerService {
         );
         return;
       } catch (error: any) {
+        const stderr: string = error.stderr ?? '';
+        const message: string = error.message ?? '';
+
+        const isSupplyChainError =
+          stderr.includes('ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION') ||
+          stderr.includes('supply-chain policy') ||
+          message.includes('ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION') ||
+          message.includes('supply-chain policy');
+
         const isNetworkError =
-          error.message?.includes('ECONNRESET') ||
-          error.message?.includes('ENOTFOUND') ||
-          error.message?.includes('META_FETCH_FAIL') ||
-          error.message?.includes('timed out');
+          message.includes('ECONNRESET') ||
+          message.includes('ENOTFOUND') ||
+          message.includes('META_FETCH_FAIL') ||
+          message.includes('timed out');
+
+        // On supply-chain error, clean the lockfile once and retry
+        if (
+          isSupplyChainError &&
+          packageManager === 'pnpm' &&
+          !lockfileWasCleaned
+        ) {
+          this.logger.warn(
+            `Supply-chain policy violation in ${repoPath}. Cleaning lockfile and retrying...`
+          );
+          try {
+            await execa('pnpm', ['clean', '--lockfile'], {
+              cwd: repoPath,
+              timeout: 30_000,
+            });
+            lockfileWasCleaned = true;
+            this.logger.debug(
+              `Lockfile cleaned in ${repoPath}, retrying install...`
+            );
+            continue; // retry the install
+          } catch (cleanError: any) {
+            this.logger.error(
+              `Failed to clean lockfile in ${repoPath}`,
+              cleanError
+            );
+          }
+        }
 
         if (attempt === maxAttempts || !isNetworkError) {
           this.logger.error(
@@ -216,7 +323,6 @@ export class PackageManagerService implements IPackageManagerService {
       }
     } catch (error: any) {
       this.logger.error(`Failed to update .npmrc in ${repoPath}`, error);
-      // Don't throw here, as it's not a fatal error for the install process
     }
   }
 
@@ -254,5 +360,31 @@ export class PackageManagerService implements IPackageManagerService {
 
     await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
     this.logger.debug(`package.json written successfully in ${repoPath}`);
+  }
+
+  async cleanPnpmWorkspaceExclusions(repoPath: string): Promise<void> {
+    const workspacePath = path.join(repoPath, 'pnpm-workspace.yaml');
+    if (!(await fs.pathExists(workspacePath))) return;
+
+    try {
+      const content = await fs.readFile(workspacePath, 'utf-8');
+      if (!content.includes('minimumReleaseAgeExclude')) return;
+
+      // Remove the entire minimumReleaseAgeExclude block
+      const cleaned =
+        content
+          .replace(/^minimumReleaseAgeExclude:[\s\S]*?(?=^\S|\z)/m, '')
+          .trimEnd() + '\n';
+
+      await fs.writeFile(workspacePath, cleaned);
+      this.logger.info(
+        `Cleaned minimumReleaseAgeExclude from pnpm-workspace.yaml in ${repoPath}`
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to clean pnpm-workspace.yaml in ${repoPath}`,
+        error
+      );
+    }
   }
 }

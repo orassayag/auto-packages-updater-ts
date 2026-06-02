@@ -47,4 +47,10 @@ export interface IPackageManagerService {
     repoPath: string,
     updates: Record<string, string>
   ): Promise<void>;
+
+  /**
+   * Cleans pnpm-workspace.yaml from stale supply-chain exclusions.
+   * @param repoPath Path to the repository.
+   */
+  cleanPnpmWorkspaceExclusions(repoPath: string): Promise<void>;
 }

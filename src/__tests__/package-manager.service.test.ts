@@ -112,6 +112,75 @@ describe('PackageManagerService', () => {
         pmService.getOutdatedPackages('path', 'npm')
       ).rejects.toThrow('Failed to check outdated packages');
     });
+
+    it('should skip non-version dependencies (workspace, file, git, etc.)', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readJson).mockResolvedValue({
+        dependencies: {
+          pkg1: 'workspace:*',
+          pkg2: 'file:../pkg2',
+          pkg3: 'git+https://github.com/user/repo.git',
+          pkg4: 'github:user/repo',
+          pkg5: 'https://example.com/pkg5.tgz',
+        },
+      });
+
+      const result = await pmService.getOutdatedPackages('path', 'npm');
+      expect(result).toEqual({});
+      expect(latestVersion).not.toHaveBeenCalled();
+    });
+
+    it('should skip packages published too recently', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readJson).mockResolvedValue({
+        dependencies: { pkg1: '^1.0.0' },
+      });
+      vi.mocked(latestVersion).mockResolvedValue('2.0.0');
+
+      // Mock npm view for maturity check - return very recent date
+      vi.mocked(execa).mockResolvedValue({
+        stdout: JSON.stringify({ '2.0.0': new Date().toISOString() }),
+      } as any);
+
+      const result = await pmService.getOutdatedPackages('path', 'npm');
+      expect(result).toEqual({});
+    });
+
+    it('should allow packages when publish time cannot be fetched', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readJson).mockResolvedValue({
+        dependencies: { pkg1: '^1.0.0' },
+      });
+      vi.mocked(latestVersion).mockResolvedValue('2.0.0');
+
+      // Mock npm view failure
+      vi.mocked(execa).mockRejectedValue(new Error('npm view failed'));
+
+      const result = await pmService.getOutdatedPackages('path', 'npm');
+      expect(result.pkg1).toBeDefined();
+    });
+
+    it('should handle errors when checking individual packages', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readJson).mockResolvedValue({
+        dependencies: {
+          pkg1: '^1.0.0',
+          pkg2: '^1.0.0',
+        },
+      });
+      vi.mocked(latestVersion)
+        .mockRejectedValueOnce(new Error('fetch failed'))
+        .mockResolvedValueOnce('2.0.0');
+
+      // For pkg2 maturity check - return old date
+      vi.mocked(execa).mockResolvedValue({
+        stdout: JSON.stringify({ '2.0.0': '2020-01-01T00:00:00Z' }),
+      } as any);
+
+      const result = await pmService.getOutdatedPackages('path', 'npm');
+      expect(result.pkg1).toBeUndefined();
+      expect(result.pkg2).toBeDefined();
+    });
   });
 
   describe('install', () => {
@@ -192,6 +261,45 @@ describe('PackageManagerService', () => {
         expect.any(Object)
       );
     });
+
+    it('should clean lockfile and retry on pnpm supply-chain error', async (): Promise<void> => {
+      const supplyChainError = new Error(
+        'ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION'
+      );
+      (supplyChainError as any).stderr =
+        'ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION';
+
+      vi.mocked(execa)
+        .mockRejectedValueOnce(supplyChainError)
+        .mockResolvedValueOnce({} as any) // clean lockfile success
+        .mockResolvedValueOnce({} as any); // retry install success
+
+      await pmService.install('path', 'pnpm');
+
+      expect(execa).toHaveBeenCalledWith(
+        'pnpm',
+        ['clean', '--lockfile'],
+        expect.any(Object)
+      );
+      expect(execa).toHaveBeenCalledTimes(3); // 1st install fail, 1 clean, 2nd install success
+    });
+
+    it('should not retry if clean lockfile fails', async (): Promise<void> => {
+      const supplyChainError = new Error(
+        'ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION'
+      );
+      (supplyChainError as any).stderr =
+        'ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION';
+
+      vi.mocked(execa)
+        .mockRejectedValueOnce(supplyChainError)
+        .mockRejectedValueOnce(new Error('clean failed'));
+
+      await expect(pmService.install('path', 'pnpm')).rejects.toThrow(
+        'pnpm install failed'
+      );
+      expect(execa).toHaveBeenCalledTimes(2); // 1st install fail, 1 clean fail
+    });
   });
 
   describe('ensureNpmrc', () => {
@@ -227,6 +335,14 @@ describe('PackageManagerService', () => {
       await pmService.ensureNpmrc('path');
 
       expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('should log error if updating .npmrc fails', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readFile as any).mockRejectedValue(new Error('read failed'));
+
+      // Should not throw
+      await pmService.ensureNpmrc('path');
     });
   });
 
@@ -266,6 +382,53 @@ describe('PackageManagerService', () => {
         }),
         expect.any(Object)
       );
+    });
+  });
+
+  describe('cleanPnpmWorkspaceExclusions', () => {
+    it('should do nothing if workspace file does not exist', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(false);
+      await pmService.cleanPnpmWorkspaceExclusions('path');
+      expect(fs.readFile).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing if exclusion block is not present', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readFile as any).mockResolvedValue(
+        'packages:\n  - "apps/*"\n'
+      );
+      await pmService.cleanPnpmWorkspaceExclusions('path');
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('should remove minimumReleaseAgeExclude block', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      const original = `packages:
+  - "apps/*"
+minimumReleaseAgeExclude:
+  - pkg1
+  - pkg2
+otherField: value
+`;
+      vi.mocked(fs.readFile as any).mockResolvedValue(original);
+
+      await pmService.cleanPnpmWorkspaceExclusions('path');
+
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining('packages:\n  - "apps/*"\notherField: value')
+      );
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.not.stringContaining('minimumReleaseAgeExclude')
+      );
+    });
+
+    it('should log error if cleaning fails', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readFile as any).mockRejectedValue(new Error('read failed'));
+      // Should not throw
+      await pmService.cleanPnpmWorkspaceExclusions('path');
     });
   });
 });
