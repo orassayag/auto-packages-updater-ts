@@ -82,6 +82,7 @@ export class ReportService implements IReportService {
     );
 
     content += '==========================\n';
+    content += '#FOR-BOT#\n';
     content += `Total packages updated: ${totalPackagesUpdated}\n`;
     content += `Total failed packages: ${totalFailed}\n`; // The example shows "Total failed packages" but it might mean failed repos or packages. I'll stick to failed repos as per the example numbers.
     content += `Total repos processed: ${this.entries.length}\n`;

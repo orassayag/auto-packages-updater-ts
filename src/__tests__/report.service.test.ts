@@ -57,6 +57,11 @@ describe('ReportService', () => {
     );
     expect(fs.writeFile).toHaveBeenCalledWith(
       expect.any(String),
+      expect.stringContaining('#FOR-BOT#'),
+      'utf8'
+    );
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      expect.any(String),
       expect.stringContaining('Total repos updated: 1'),
       'utf8'
     );
