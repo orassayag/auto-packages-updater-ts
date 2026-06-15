@@ -1,10 +1,21 @@
 # Auto Packages Updater Ts
 
-A powerful Node.js TypeScript automation tool to scan multiple projects for outdated NPM/PNPM packages and automatically update them with Git integration. Built with enterprise-grade architecture using InversifyJS and Zod.
+Auto Packages Updater Ts is a Node.js + TypeScript automation tool that scans multiple repositories for outdated dependencies and safely updates them using either NPM or PNPM.
 
-Built in May 2026, this project demonstrates scalable software design, advanced automation workflows, dependency management strategies, and clean modular architecture for modern TypeScript applications.
+Built in May 2026, it integrates with Git to ensure clean pull-before-update and push-after-update workflows, while skipping dirty working trees for safety. Built with InversifyJS and Zod, it emphasizes modular architecture, runtime validation, and type safety for scalable enterprise-grade automation across projects. It prioritizes safety, observability, and repeatable automated workflows.
 
 ## Features
+
+- 📦 Multi-project dependency scanning and updates
+- 🐱 Dual package manager support (NPM and PNPM)
+- 🔄 Smart Git integration (pull before update, push after update)
+- 🛡️ Safety-first approach (skips dirty working trees, processes itself last)
+- 📊 Detailed execution reports with Jerusalem time formatting
+- 💉 Clean architecture with dependency injection (InversifyJS)
+- 🔒 Runtime validation with Zod schemas
+- 🧪 High test coverage (>80% with Vitest)
+- 🎨 Beautiful CLI with spinners and progress tracking
+- ⚡ Fast feedback and easy automation
 
 ### Core Capabilities
 
@@ -162,7 +173,3 @@ This application has an MIT license - see the [LICENSE](LICENSE) file for detail
 - Respects robots.txt and implements rate limiting
 - Uses user-agent rotation to avoid detection
 - Implements polite crawling practices
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

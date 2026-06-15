@@ -56,9 +56,12 @@
     ".github",
     ".vscode",
     "dist",
+    "docs",
+    "logs",
     "misc",
     "src",
     ".gitignore",
+    ".npmrc",
     ".prettierrc",
     "auto-packages-updater-ts.bat",
     "CHANGELOG.md",
@@ -78,18 +81,11 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/index.ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\"",
     "start": "tsx src/index.ts",
-    "start:live": "cross-env DRY_MODE=false tsx src/index.ts",
-    "start:no-cache": "tsx src/index.ts --no-cache",
     "sync": "tsx src/index.ts --auto",
-    "test": "cross-env NODE_OPTIONS='--no-warnings' vitest run --coverage",
-    "test:no-coverage": "cross-env NODE_OPTIONS='--no-warnings' vitest run",
-    "test:ui": "vitest --ui",
-    "test:watch": "cross-env NODE_OPTIONS='--no-warnings' vitest"
+    "test": "vitest run --coverage"
   },
   "dependencies": {
     "chalk": "^5.6.2",
@@ -112,8 +108,8 @@
     "@types/semver": "^7.7.1",
     "@typescript-eslint/eslint-plugin": "^8.61.0",
     "@typescript-eslint/parser": "^8.61.0",
-    "@vitest/coverage-istanbul": "^4.1.8",
-    "@vitest/ui": "^4.1.8",
+    "@vitest/coverage-istanbul": "^4.1.9",
+    "@vitest/ui": "^4.1.9",
     "cross-env": "^10.1.0",
     "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
@@ -122,7 +118,7 @@
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   },
   "engines": {
     "node": ">=20.0.0",
