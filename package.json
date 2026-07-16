@@ -102,7 +102,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@rolldown/binding-win32-x64-msvc": "^1.1.5",
+    "@rolldown/binding-win32-x64-msvc": "^1.2.0",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^26.1.1",
     "@types/semver": "^7.7.1",
