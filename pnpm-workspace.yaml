@@ -27,3 +27,4 @@ minimumReleaseAgeExclude:
   - '@inversifyjs/core@15.0.0 || 15.0.1'
   - inversify@8.2.2 || 8.2.3
   - fs-extra@11.4.0
+  - eslint@10.8.0
