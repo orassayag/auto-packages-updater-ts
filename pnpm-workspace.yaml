@@ -28,3 +28,4 @@ minimumReleaseAgeExclude:
   - inversify@8.2.2 || 8.2.3
   - fs-extra@11.4.0
   - eslint@10.8.0
+  - chalk@6.0.0
