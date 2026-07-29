@@ -30,3 +30,4 @@ minimumReleaseAgeExclude:
   - eslint@10.8.0
   - chalk@6.0.0
   - '@types/node@26.1.2'
+  - '@rolldown/binding-win32-x64-msvc@1.2.1'
