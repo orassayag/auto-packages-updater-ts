@@ -98,7 +98,7 @@
     "ora": "^9.4.1",
     "reflect-metadata": "^0.2.2",
     "semver": "^7.8.5",
-    "zod": "^4.4.3"
+    "zod": "^4.5.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
