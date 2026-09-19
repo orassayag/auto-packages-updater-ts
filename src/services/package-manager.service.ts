@@ -200,16 +200,13 @@ export class PackageManagerService implements IPackageManagerService {
     const baseArgs =
       packageManager === 'npm'
         ? ['install', '--legacy-peer-deps']
-        : [
+        : // pnpm 11+ dropped the --fetch-retry* flags; passing one makes pnpm
+          // fall back to parsing the line as `pnpm add` and reject it. Retries
+          // are covered by the attempt loop below.
+          [
             'install',
             '--no-strict-peer-dependencies',
             '--no-frozen-lockfile',
-            '--fetch-retries',
-            '5',
-            '--fetch-retry-mintimeout',
-            '10000',
-            '--fetch-retry-maxtimeout',
-            '60000',
             '--network-concurrency',
             '4',
           ];
