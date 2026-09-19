@@ -424,6 +424,24 @@ otherField: value
       );
     });
 
+    it('should remove the whole block when the last entry starts with "z"', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      const original = `allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - tsx@4.23.12
+  - zod@4.5.2
+`;
+      vi.mocked(fs.readFile as any).mockResolvedValue(original);
+
+      await pmService.cleanPnpmWorkspaceExclusions('path');
+
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.any(String),
+        'allowBuilds:\n  esbuild: true\n'
+      );
+    });
+
     it('should log error if cleaning fails', async (): Promise<void> => {
       vi.mocked(fs.pathExists as any).mockResolvedValue(true);
       vi.mocked(fs.readFile as any).mockRejectedValue(new Error('read failed'));

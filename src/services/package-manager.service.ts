@@ -370,11 +370,26 @@ export class PackageManagerService implements IPackageManagerService {
       const content = await fs.readFile(workspacePath, 'utf-8');
       if (!content.includes('minimumReleaseAgeExclude')) return;
 
-      // Remove the entire minimumReleaseAgeExclude block
-      const cleaned =
-        content
-          .replace(/^minimumReleaseAgeExclude:[\s\S]*?(?=^\S|\z)/m, '')
-          .trimEnd() + '\n';
+      const lines = content.split(/\r?\n/);
+      const keptLines: string[] = [];
+      let isInsideExclusionBlock = false;
+
+      for (const line of lines) {
+        if (isInsideExclusionBlock) {
+          const isBlockContinuation = line.trim() === '' || /^\s/.test(line);
+          if (isBlockContinuation) continue;
+          isInsideExclusionBlock = false;
+        }
+
+        if (/^minimumReleaseAgeExclude\s*:/.test(line)) {
+          isInsideExclusionBlock = true;
+          continue;
+        }
+
+        keptLines.push(line);
+      }
+
+      const cleaned = keptLines.join('\n').trimEnd() + '\n';
 
       await fs.writeFile(workspacePath, cleaned);
       this.logger.info(
