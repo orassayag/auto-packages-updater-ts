@@ -108,8 +108,8 @@
     "@types/semver": "^7.8.0",
     "@typescript-eslint/eslint-plugin": "^8.70.1",
     "@typescript-eslint/parser": "^8.70.1",
-    "@vitest/coverage-istanbul": "^5.0.1",
-    "@vitest/ui": "^5.0.1",
+    "@vitest/coverage-istanbul": "^5.0.2",
+    "@vitest/ui": "^5.0.2",
     "cross-env": "^10.1.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
@@ -118,7 +118,7 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "typescript-eslint": "^8.70.1",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.2"
   },
   "engines": {
     "node": ">=20.0.0",
