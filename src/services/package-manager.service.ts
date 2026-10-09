@@ -111,6 +111,86 @@ export class PackageManagerService implements IPackageManagerService {
 
   // ────────────────────────────────────────────────────────────────────────────
 
+  private async getPeerDependencies(
+    pkgName: string,
+    version: string
+  ): Promise<Record<string, string>> {
+    try {
+      const { stdout } = await execa(
+        'npm',
+        ['view', `${pkgName}@${version}`, 'peerDependencies', '--json'],
+        { timeout: 15_000 }
+      );
+      const parsed: unknown = stdout.trim() ? JSON.parse(stdout) : {};
+      return parsed && typeof parsed === 'object'
+        ? (parsed as Record<string, string>)
+        : {};
+    } catch (error) {
+      this.logger.debug(
+        `Could not fetch peerDependencies for ${pkgName}@${version}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      return {};
+    }
+  }
+
+  /**
+   * Install runs with --legacy-peer-deps / --no-strict-peer-dependencies, so a
+   * bump that breaks another dependency's peer range installs fine here and only
+   * fails later in a strict `npm ci` (e.g. typescript 7 vs typescript-eslint's
+   * `<6.1.0`). Drop such bumps until the peer range catches up.
+   */
+  private async dropPeerIncompatibleUpdates(
+    dependencies: Record<string, string>,
+    outdated: OutdatedOutput
+  ): Promise<void> {
+    const peerRangesByPackage = new Map<
+      string,
+      { range: string; requiredBy: string }[]
+    >();
+
+    await Promise.all(
+      Object.entries(dependencies).map(async ([pkgName, currentRange]) => {
+        const targetVersion =
+          outdated[pkgName]?.latest ??
+          (semver.validRange(currentRange)
+            ? semver.minVersion(currentRange)?.version
+            : undefined);
+        if (!targetVersion) return;
+
+        const peers = await this.getPeerDependencies(pkgName, targetVersion);
+        for (const [peerName, peerRange] of Object.entries(peers)) {
+          if (typeof peerRange !== 'string' || !semver.validRange(peerRange)) {
+            continue;
+          }
+          const ranges = peerRangesByPackage.get(peerName) ?? [];
+          ranges.push({
+            range: peerRange,
+            requiredBy: `${pkgName}@${targetVersion}`,
+          });
+          peerRangesByPackage.set(peerName, ranges);
+        }
+      })
+    );
+
+    for (const [pkgName, info] of Object.entries(outdated)) {
+      const violatedRanges = (peerRangesByPackage.get(pkgName) ?? []).filter(
+        ({ range }) => !semver.satisfies(info.latest, range)
+      );
+      if (violatedRanges.length === 0) continue;
+
+      const violations = violatedRanges
+        .map(({ range, requiredBy }) => `${range} (${requiredBy})`)
+        .join(', ');
+      this.logger.warn(
+        `Skipping ${pkgName}@${info.latest}: outside peer range ${violations}. ` +
+          `Will be picked up once the peer range allows it.`
+      );
+      delete outdated[pkgName];
+    }
+  }
+
   async getOutdatedPackages(
     repoPath: string,
     _packageManager: PackageManager
@@ -181,6 +261,8 @@ export class PackageManagerService implements IPackageManagerService {
           }
         })
       );
+
+      await this.dropPeerIncompatibleUpdates(dependencies, outdated);
 
       return outdated;
     } catch (error: any) {

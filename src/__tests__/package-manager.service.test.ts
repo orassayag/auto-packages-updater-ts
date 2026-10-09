@@ -181,6 +181,84 @@ describe('PackageManagerService', () => {
       expect(result.pkg1).toBeUndefined();
       expect(result.pkg2).toBeDefined();
     });
+
+    describe('peer dependency compatibility', () => {
+      const mockNpmView = (
+        peerDependenciesBySpec: Record<string, Record<string, string>>
+      ): void => {
+        vi.mocked(execa).mockImplementation(((
+          _command: string,
+          args: string[]
+        ) => {
+          const [, spec, field] = args;
+          if (field === 'time') {
+            const version = spec.slice(spec.lastIndexOf('@') + 1);
+            return Promise.resolve({
+              stdout: JSON.stringify({ [version]: '2020-01-01T00:00:00Z' }),
+            });
+          }
+          const peers = peerDependenciesBySpec[spec];
+          return Promise.resolve({
+            stdout: peers ? JSON.stringify(peers) : '',
+          });
+        }) as any);
+      };
+
+      beforeEach((): void => {
+        vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+        vi.mocked(fs.readJson).mockResolvedValue({
+          devDependencies: {
+            typescript: '^6.0.3',
+            'typescript-eslint': '^8.71.0',
+          },
+        });
+      });
+
+      it('should skip an update that breaks another dependency peer range', async (): Promise<void> => {
+        vi.mocked(latestVersion).mockImplementation(((name: string) =>
+          Promise.resolve(name === 'typescript' ? '7.0.2' : '8.71.1')) as any);
+        mockNpmView({
+          'typescript-eslint@8.71.1': { typescript: '>=4.8.4 <6.1.0' },
+        });
+
+        const result = await pmService.getOutdatedPackages('path', 'npm');
+        expect(result.typescript).toBeUndefined();
+        expect(result['typescript-eslint'].latest).toBe('8.71.1');
+      });
+
+      it('should keep the update once the peer range allows it', async (): Promise<void> => {
+        vi.mocked(latestVersion).mockImplementation(((name: string) =>
+          Promise.resolve(name === 'typescript' ? '7.0.2' : '9.0.0')) as any);
+        mockNpmView({
+          'typescript-eslint@9.0.0': { typescript: '>=5.0.0 <8.0.0' },
+        });
+
+        const result = await pmService.getOutdatedPackages('path', 'npm');
+        expect(result.typescript.latest).toBe('7.0.2');
+      });
+
+      it('should check peer ranges of dependencies that are not being updated', async (): Promise<void> => {
+        vi.mocked(latestVersion).mockImplementation(((name: string) =>
+          Promise.resolve(name === 'typescript' ? '7.0.2' : '8.71.0')) as any);
+        mockNpmView({
+          'typescript-eslint@8.71.0': { typescript: '>=4.8.4 <6.1.0' },
+        });
+
+        const result = await pmService.getOutdatedPackages('path', 'npm');
+        expect(result).toEqual({});
+      });
+
+      it('should ignore non-version dependencies when collecting peer ranges', async (): Promise<void> => {
+        vi.mocked(fs.readJson).mockResolvedValue({
+          dependencies: { local: 'workspace:*', pkg1: '^1.0.0' },
+        });
+        vi.mocked(latestVersion).mockResolvedValue('2.0.0');
+        mockNpmView({});
+
+        const result = await pmService.getOutdatedPackages('path', 'npm');
+        expect(result.pkg1.latest).toBe('2.0.0');
+      });
+    });
   });
 
   describe('install', () => {

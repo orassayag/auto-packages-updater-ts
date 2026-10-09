@@ -121,6 +121,8 @@ If the app fails with "NPM registry is unreachable", check your internet connect
 
 If `npm install` or `pnpm install` fails (e.g., due to peer dependency conflicts), the repository will be marked as [FAILED]. The app uses `--legacy-peer-deps` (NPM) or `--no-strict-peer-dependencies` (PNPM) to minimize these issues.
 
+Because those flags let a peer conflict install without error, the app also checks every update against the peer ranges declared by the repository's other direct dependencies, and skips any version outside them (logged as a warning). For example, `typescript` stays on 6.x while `typescript-eslint` only supports `<6.1.0`, so a strict `npm ci` in CI keeps passing.
+
 ## Best Practices
 
 - **Verify Configuration**: Ensure your `project-repos-names.json` is correctly formatted and paths are accessible.
