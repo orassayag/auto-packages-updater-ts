@@ -98,7 +98,7 @@
     "ora": "^9.4.1",
     "reflect-metadata": "^0.2.2",
     "semver": "^7.8.5",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -106,10 +106,10 @@
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^26.6.5",
     "@types/semver": "^7.8.0",
-    "@typescript-eslint/eslint-plugin": "^8.71.1",
-    "@typescript-eslint/parser": "^8.71.1",
-    "@vitest/coverage-istanbul": "^5.0.3",
-    "@vitest/ui": "^5.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.71.2",
+    "@typescript-eslint/parser": "^8.71.2",
+    "@vitest/coverage-istanbul": "^5.0.4",
+    "@vitest/ui": "^5.0.4",
     "cross-env": "^10.1.0",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
@@ -117,8 +117,8 @@
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "typescript-eslint": "^8.71.1",
-    "vitest": "^5.0.3"
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.4"
   },
   "engines": {
     "node": ">=20.0.0",
