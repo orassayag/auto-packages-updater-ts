@@ -109,12 +109,14 @@ export class UpdaterService implements IUpdaterService {
         return;
       }
 
+      updateSpinner(`Syncing (git pull)...`);
+      await this.gitService.pull(repoPath);
+
+      // Detecting before the pull reads a stale clone: a repo that just moved
+      // npm -> pnpm would be installed with npm and get a package-lock.json back.
       const pm =
         await this.packageManagerService.detectPackageManager(repoPath);
       this.logger.debug(`Detected package manager for ${repo.name}: ${pm}`);
-
-      updateSpinner(`Syncing (git pull)...`);
-      await this.gitService.pull(repoPath);
 
       updateSpinner(`Checking for outdated packages...`);
       const outdated = await this.packageManagerService.getOutdatedPackages(

@@ -88,6 +88,14 @@ describe('UpdaterService', () => {
     );
   });
 
+  it('should detect the package manager after pulling', async (): Promise<void> => {
+    await updaterService.run();
+
+    expect(gitService.pull.mock.invocationCallOrder[0]).toBeLessThan(
+      pmService.detectPackageManager.mock.invocationCallOrder[0]
+    );
+  });
+
   it('should skip a repo if it has uncommitted changes', async (): Promise<void> => {
     gitService.hasUncommittedChanges.mockResolvedValue(true);
 
