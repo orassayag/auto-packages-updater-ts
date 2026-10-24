@@ -74,6 +74,7 @@ describe('PackageManagerService', () => {
         },
       });
       vi.mocked(latestVersion).mockResolvedValue('2.0.0');
+      vi.mocked(execa).mockResolvedValue({ stdout: '' } as any);
 
       const result = await pmService.getOutdatedPackages('path', 'npm');
       expect(result.pkg1.latest).toBe('2.0.0');
@@ -151,13 +152,30 @@ describe('PackageManagerService', () => {
       vi.mocked(fs.readJson).mockResolvedValue({
         dependencies: { pkg1: '^1.0.0' },
       });
-      vi.mocked(latestVersion).mockResolvedValue('2.0.0');
+      vi.mocked(latestVersion).mockResolvedValue('1.5.0');
 
       // Mock npm view failure
       vi.mocked(execa).mockRejectedValue(new Error('npm view failed'));
 
       const result = await pmService.getOutdatedPackages('path', 'npm');
       expect(result.pkg1).toBeDefined();
+    });
+
+    it('should skip packages listed in autoPackagesUpdater.ignore', async (): Promise<void> => {
+      vi.mocked(fs.pathExists as any).mockResolvedValue(true);
+      vi.mocked(fs.readJson).mockResolvedValue({
+        dependencies: { pkg1: '^1.0.0', pkg2: '^1.0.0' },
+        autoPackagesUpdater: { ignore: ['pkg1'] },
+      });
+      vi.mocked(latestVersion).mockResolvedValue('1.5.0');
+      vi.mocked(execa).mockResolvedValue({
+        stdout: JSON.stringify({ '1.5.0': '2020-01-01T00:00:00Z' }),
+      } as any);
+
+      const result = await pmService.getOutdatedPackages('path', 'npm');
+      expect(result.pkg1).toBeUndefined();
+      expect(result.pkg2.latest).toBe('1.5.0');
+      expect(latestVersion).not.toHaveBeenCalledWith('pkg1');
     });
 
     it('should handle errors when checking individual packages', async (): Promise<void> => {
@@ -246,6 +264,28 @@ describe('PackageManagerService', () => {
 
         const result = await pmService.getOutdatedPackages('path', 'npm');
         expect(result).toEqual({});
+      });
+
+      it('should drop major bumps but keep minor bumps when a peer lookup fails', async (): Promise<void> => {
+        vi.mocked(latestVersion).mockImplementation(((name: string) =>
+          Promise.resolve(name === 'typescript' ? '7.0.2' : '8.72.0')) as any);
+        vi.mocked(execa).mockImplementation(((
+          _command: string,
+          args: string[]
+        ) => {
+          const [, spec, field] = args;
+          if (field === 'time') {
+            const version = spec.slice(spec.lastIndexOf('@') + 1);
+            return Promise.resolve({
+              stdout: JSON.stringify({ [version]: '2020-01-01T00:00:00Z' }),
+            });
+          }
+          return Promise.reject(new Error('timed out'));
+        }) as any);
+
+        const result = await pmService.getOutdatedPackages('path', 'npm');
+        expect(result.typescript).toBeUndefined();
+        expect(result['typescript-eslint'].latest).toBe('8.72.0');
       });
 
       it('should ignore non-version dependencies when collecting peer ranges', async (): Promise<void> => {

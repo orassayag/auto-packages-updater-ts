@@ -114,25 +114,36 @@ export class PackageManagerService implements IPackageManagerService {
   private async getPeerDependencies(
     pkgName: string,
     version: string
-  ): Promise<Record<string, string>> {
+  ): Promise<Record<string, string> | null> {
     try {
       const { stdout } = await execa(
         'npm',
         ['view', `${pkgName}@${version}`, 'peerDependencies', '--json'],
-        { timeout: 15_000 }
+        { timeout: 60_000 }
       );
       const parsed: unknown = stdout.trim() ? JSON.parse(stdout) : {};
       return parsed && typeof parsed === 'object'
         ? (parsed as Record<string, string>)
         : {};
     } catch (error) {
-      this.logger.debug(
+      this.logger.warn(
         `Could not fetch peerDependencies for ${pkgName}@${version}: ${
           error instanceof Error ? error.message : String(error)
         }`
       );
-      return {};
+      return null;
     }
+  }
+
+  private getIgnoredPackages(packageJson: {
+    autoPackagesUpdater?: { ignore?: unknown };
+  }): Set<string> {
+    const ignore = packageJson.autoPackagesUpdater?.ignore;
+    return new Set(
+      Array.isArray(ignore)
+        ? ignore.filter((name): name is string => typeof name === 'string')
+        : []
+    );
   }
 
   /**
@@ -140,6 +151,9 @@ export class PackageManagerService implements IPackageManagerService {
    * bump that breaks another dependency's peer range installs fine here and only
    * fails later in a strict `npm ci` (e.g. typescript 7 vs typescript-eslint's
    * `<6.1.0`). Drop such bumps until the peer range catches up.
+   *
+   * A failed peer lookup means a major bump cannot be proven safe, so every
+   * major bump is dropped for that run instead of letting it through.
    */
   private async dropPeerIncompatibleUpdates(
     dependencies: Record<string, string>,
@@ -149,6 +163,7 @@ export class PackageManagerService implements IPackageManagerService {
       string,
       { range: string; requiredBy: string }[]
     >();
+    const unverifiedPackages: string[] = [];
 
     await Promise.all(
       Object.entries(dependencies).map(async ([pkgName, currentRange]) => {
@@ -160,6 +175,10 @@ export class PackageManagerService implements IPackageManagerService {
         if (!targetVersion) return;
 
         const peers = await this.getPeerDependencies(pkgName, targetVersion);
+        if (!peers) {
+          unverifiedPackages.push(`${pkgName}@${targetVersion}`);
+          return;
+        }
         for (const [peerName, peerRange] of Object.entries(peers)) {
           if (typeof peerRange !== 'string' || !semver.validRange(peerRange)) {
             continue;
@@ -189,6 +208,22 @@ export class PackageManagerService implements IPackageManagerService {
       );
       delete outdated[pkgName];
     }
+
+    if (unverifiedPackages.length === 0) return;
+
+    for (const [pkgName, info] of Object.entries(outdated)) {
+      if (
+        info.current &&
+        semver.major(info.latest) <= semver.major(info.current)
+      ) {
+        continue;
+      }
+      this.logger.warn(
+        `Skipping major bump ${pkgName}@${info.latest}: peer ranges unknown for ` +
+          `${unverifiedPackages.join(', ')}. Will be retried on the next run.`
+      );
+      delete outdated[pkgName];
+    }
   }
 
   async getOutdatedPackages(
@@ -210,7 +245,14 @@ export class PackageManagerService implements IPackageManagerService {
       };
 
       const outdated: OutdatedOutput = {};
-      const packageNames = Object.keys(dependencies);
+      const ignoredPackages = this.getIgnoredPackages(packageJson);
+      const packageNames = Object.keys(dependencies).filter((pkgName) => {
+        if (!ignoredPackages.has(pkgName)) return true;
+        this.logger.info(
+          `Skipping ${pkgName}: listed in autoPackagesUpdater.ignore`
+        );
+        return false;
+      });
       this.logger.debug(
         `Found ${packageNames.length} total dependencies in ${repoPath}`
       );

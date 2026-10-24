@@ -84,6 +84,21 @@ Create a file at `C:\Or\web\project-repos-names.json` with the following structu
 
 The app will only process repos with `"type": "active"`.
 
+### Holding a package back
+
+To stop the updater from bumping a package in one repo, list it in that repo's `package.json`:
+
+```json
+{
+  "autoPackagesUpdater": {
+    "ignore": ["typescript"]
+  }
+}
+```
+
+Updates that would break another dependency's peer range are skipped automatically. If a peer range
+cannot be fetched from npm, every major-version bump for that repo is skipped until the next run.
+
 ### Running the App
 
 You can run the app directly using:
