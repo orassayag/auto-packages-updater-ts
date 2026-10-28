@@ -104,7 +104,7 @@
     "@eslint/js": "^10.0.1",
     "@rolldown/binding-win32-x64-msvc": "^1.2.15",
     "@types/fs-extra": "^11.0.4",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/semver": "^7.8.0",
     "@typescript-eslint/eslint-plugin": "^8.72.1",
     "@typescript-eslint/parser": "^8.72.1",
