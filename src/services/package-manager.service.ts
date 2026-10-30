@@ -12,6 +12,8 @@ import {
 } from '../interfaces/IPackageManagerService.js';
 import { OutdatedOutput } from '../schemas/outdated.schema.js';
 
+const DEFAULT_VERIFY_SCRIPTS = ['lint', 'typecheck', 'build', 'test'];
+
 @injectable()
 export class PackageManagerService implements IPackageManagerService {
   constructor(@inject(TYPES.ILogger) private readonly logger: ILogger) {
@@ -412,6 +414,46 @@ export class PackageManagerService implements IPackageManagerService {
           `[${command} install] Attempt ${attempt} failed (network error). Retrying in ${delay / 1000}s...`
         );
         await new Promise((res) => setTimeout(res, delay));
+      }
+    }
+  }
+
+  private getVerifyScripts(packageJson: {
+    scripts?: Record<string, string>;
+    autoPackagesUpdater?: { verify?: unknown };
+  }): string[] {
+    const configured = packageJson.autoPackagesUpdater?.verify;
+    if (Array.isArray(configured)) {
+      return configured.filter(
+        (name): name is string => typeof name === 'string'
+      );
+    }
+    return DEFAULT_VERIFY_SCRIPTS.filter(
+      (name) => typeof packageJson.scripts?.[name] === 'string'
+    );
+  }
+
+  async verify(
+    repoPath: string,
+    packageManager: PackageManager
+  ): Promise<void> {
+    const packageJson = await fs.readJson(path.join(repoPath, 'package.json'));
+    const scripts = this.getVerifyScripts(packageJson);
+    const command = packageManager === 'npm' ? 'npm' : 'pnpm';
+
+    for (const script of scripts) {
+      this.logger.info(`Verifying ${repoPath}: ${command} run ${script}`);
+      try {
+        await execa(command, ['run', script], {
+          cwd: repoPath,
+          timeout: 15 * 60 * 1000,
+          env: { ...process.env, CI: 'true' },
+        });
+      } catch (error: any) {
+        const output = String(error.stderr || error.stdout || error.message);
+        throw new Error(
+          `Verification failed on "${script}": ${output.slice(-2000)}`
+        );
       }
     }
   }

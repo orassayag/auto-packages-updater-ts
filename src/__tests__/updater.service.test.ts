@@ -22,11 +22,13 @@ describe('UpdaterService', () => {
       add: vi.fn(),
       commit: vi.fn(),
       push: vi.fn(),
+      discardChanges: vi.fn(),
     } as unknown as Mocked<IGitService>;
     pmService = {
       detectPackageManager: vi.fn().mockResolvedValue('npm'),
       getOutdatedPackages: vi.fn().mockResolvedValue({}),
       install: vi.fn(),
+      verify: vi.fn(),
       updatePackageJson: vi.fn(),
     } as unknown as Mocked<IPackageManagerService>;
     reportService = {
@@ -86,6 +88,52 @@ describe('UpdaterService', () => {
     expect(reportService.addEntry).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'UPDATED' })
     );
+  });
+
+  it('should verify before committing and pushing', async (): Promise<void> => {
+    pmService.getOutdatedPackages.mockResolvedValue({
+      pkg: { current: '1.0.0', wanted: '2.0.0', latest: '2.0.0' },
+    });
+
+    await updaterService.run();
+
+    expect(pmService.verify.mock.invocationCallOrder[0]).toBeLessThan(
+      gitService.commit.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('should discard changes and not push when verification fails', async (): Promise<void> => {
+    pmService.getOutdatedPackages.mockResolvedValue({
+      typescript: { current: '6.0.3', wanted: '7.0.2', latest: '7.0.2' },
+    });
+    pmService.verify.mockRejectedValue(
+      new Error('Verification failed on "lint"')
+    );
+
+    await updaterService.run();
+
+    expect(gitService.discardChanges).toHaveBeenCalled();
+    expect(gitService.commit).not.toHaveBeenCalled();
+    expect(gitService.push).not.toHaveBeenCalled();
+    expect(reportService.addEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'FAILED',
+        error: expect.stringContaining('lint'),
+      })
+    );
+  });
+
+  it('should discard changes when install fails', async (): Promise<void> => {
+    pmService.getOutdatedPackages.mockResolvedValue({
+      pkg: { current: '1.0.0', wanted: '2.0.0', latest: '2.0.0' },
+    });
+    pmService.install.mockRejectedValue(new Error('install failed'));
+
+    await updaterService.run();
+
+    expect(gitService.discardChanges).toHaveBeenCalled();
+    expect(pmService.verify).not.toHaveBeenCalled();
+    expect(gitService.push).not.toHaveBeenCalled();
   });
 
   it('should detect the package manager after pulling', async (): Promise<void> => {

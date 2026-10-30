@@ -5,4 +5,5 @@ export interface IGitService {
   add(repoPath: string): Promise<void>;
   commit(repoPath: string, message: string): Promise<void>;
   push(repoPath: string): Promise<void>;
+  discardChanges(repoPath: string): Promise<void>;
 }

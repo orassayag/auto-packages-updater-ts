@@ -63,6 +63,56 @@ describe('PackageManagerService', () => {
     });
   });
 
+  describe('verify', () => {
+    it('should run only the default scripts the repo defines', async (): Promise<void> => {
+      vi.mocked(fs.readJson).mockResolvedValue({
+        scripts: { lint: 'eslint .', test: 'vitest run', dev: 'vite' },
+      });
+      vi.mocked(execa).mockResolvedValue({ stdout: '' } as any);
+
+      await pmService.verify('path', 'pnpm');
+
+      const runScripts = vi.mocked(execa).mock.calls.map((call) => call[1]);
+      expect(runScripts).toEqual([
+        ['run', 'lint'],
+        ['run', 'test'],
+      ]);
+    });
+
+    it('should use autoPackagesUpdater.verify when set', async (): Promise<void> => {
+      vi.mocked(fs.readJson).mockResolvedValue({
+        scripts: { lint: 'eslint .', test: 'vitest run' },
+        autoPackagesUpdater: { verify: ['lint'] },
+      });
+      vi.mocked(execa).mockResolvedValue({ stdout: '' } as any);
+
+      await pmService.verify('path', 'npm');
+
+      expect(execa).toHaveBeenCalledTimes(1);
+      expect(execa).toHaveBeenCalledWith(
+        'npm',
+        ['run', 'lint'],
+        expect.anything()
+      );
+    });
+
+    it('should throw naming the failing script', async (): Promise<void> => {
+      vi.mocked(fs.readJson).mockResolvedValue({
+        scripts: { lint: 'eslint .', build: 'tsc' },
+      });
+      vi.mocked(execa).mockRejectedValue(
+        Object.assign(new Error('exit 2'), {
+          stderr: 'typescript-eslint does not support TS 7.0.',
+        })
+      );
+
+      await expect(pmService.verify('path', 'pnpm')).rejects.toThrow(
+        /"lint".*TS 7\.0/
+      );
+      expect(execa).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('getOutdatedPackages', () => {
     it('should return outdated packages when newer versions exist', async (): Promise<void> => {
       vi.mocked(

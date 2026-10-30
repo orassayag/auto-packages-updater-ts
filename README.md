@@ -99,6 +99,20 @@ To stop the updater from bumping a package in one repo, list it in that repo's `
 Updates that would break another dependency's peer range are skipped automatically. If a peer range
 cannot be fetched from npm, every major-version bump for that repo is skipped until the next run.
 
+### Verification before push
+
+After installing, the updater runs the repo's `lint`, `typecheck`, `build` and `test` scripts (whichever
+exist). If any of them fails, the repo's changes are discarded, nothing is pushed, and the report marks the
+repo `FAILED` with the failing script. To run a different list, set it in the repo's `package.json`:
+
+```json
+{
+  "autoPackagesUpdater": {
+    "verify": ["lint", "build"]
+  }
+}
+```
+
 ### Running the App
 
 You can run the app directly using:
@@ -109,7 +123,8 @@ pnpm sync
 
 Or use the provided BAT file:
 
-- `auto-packages-updater-ts.bat` (in project root)
+- `auto-packages-updater-ts.bat` (in project root) — pulls and installs the updater itself first, so a fix
+  to the updater applies on the very next run.
 - A copy is also placed on your Desktop.
 
 ## Best Practices

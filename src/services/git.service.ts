@@ -100,6 +100,16 @@ export class GitService implements IGitService {
     await execa('git', ['commit', '-m', message], { cwd: repoPath });
   }
 
+  /**
+   * Only called on a tree that was clean before the updater touched it, so
+   * this removes nothing but the updater's own edits. Ignored files survive.
+   */
+  async discardChanges(repoPath: string): Promise<void> {
+    this.logger.debug(`Discarding working tree changes in ${repoPath}`);
+    await execa('git', ['reset', '--hard', 'HEAD'], { cwd: repoPath });
+    await execa('git', ['clean', '-fd'], { cwd: repoPath });
+  }
+
   async push(repoPath: string): Promise<void> {
     this.logger.debug(`Running git push --force-with-lease in ${repoPath}`);
     await this.withRetry('git push --force-with-lease', repoPath, () =>

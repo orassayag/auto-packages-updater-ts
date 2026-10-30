@@ -11,8 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin `typescript` back to `^6.0.3`; 7.x crashed `pnpm lint`.
 - The peer-range check no longer fails open: a failed or timed-out `npm view` used to count as "no peers" and let `typescript` 7 through again. Now every major bump in that repo is skipped for the run.
 - Pin `typescript` to `~6.0.3` again and hold it with `autoPackagesUpdater.ignore`.
+- Pin `typescript` back to `~6.0.3` once more: the first run after the ignore list landed still ran the old code and bumped it to 7, and the ignore list then kept it there.
+- The BAT file now pulls and installs the updater before running it, so updater fixes apply on the next run instead of the one after. It also uses `call` so the closing lines run.
+- A failed install no longer leaves the repo dirty (which made every later run skip it).
 
 ### Added
 
 - Initial release with core features
 - `autoPackagesUpdater.ignore` in a repo's `package.json` lists packages the updater never bumps.
+- Verify before push: run the repo's `lint`/`typecheck`/`build`/`test` scripts (or `autoPackagesUpdater.verify`) after install; on failure discard the changes and report `FAILED` instead of pushing a broken commit.

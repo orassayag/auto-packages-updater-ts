@@ -45,6 +45,21 @@ describe('GitService', () => {
     expect(result).toBe(false);
   });
 
+  it('should reset and clean when discarding changes', async (): Promise<void> => {
+    await gitService.discardChanges('path');
+    expect(execa).toHaveBeenNthCalledWith(
+      1,
+      'git',
+      ['reset', '--hard', 'HEAD'],
+      {
+        cwd: 'path',
+      }
+    );
+    expect(execa).toHaveBeenNthCalledWith(2, 'git', ['clean', '-fd'], {
+      cwd: 'path',
+    });
+  });
+
   it('should call git add .', async (): Promise<void> => {
     await gitService.add('path');
     expect(execa).toHaveBeenCalledWith('git', ['add', '.'], { cwd: 'path' });

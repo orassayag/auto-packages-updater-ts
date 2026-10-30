@@ -33,6 +33,14 @@ export interface IPackageManagerService {
   install(repoPath: string, packageManager: PackageManager): Promise<void>;
 
   /**
+   * Runs the repo's lint/typecheck/build/test scripts (or the list in
+   * package.json autoPackagesUpdater.verify) and throws on the first failure.
+   * @param repoPath Path to the repository.
+   * @param packageManager The package manager to use.
+   */
+  verify(repoPath: string, packageManager: PackageManager): Promise<void>;
+
+  /**
    * Ensures .npmrc exists with network resilience settings for pnpm.
    * @param repoPath Path to the repository.
    */

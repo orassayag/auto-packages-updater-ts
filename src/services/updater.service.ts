@@ -184,8 +184,17 @@ export class UpdaterService implements IUpdaterService {
         await this.packageManagerService.cleanPnpmWorkspaceExclusions(repoPath);
       }
 
-      updateSpinner(`Installing dependencies (${pm})...`);
-      await this.packageManagerService.install(repoPath, pm);
+      try {
+        updateSpinner(`Installing dependencies (${pm})...`);
+        await this.packageManagerService.install(repoPath, pm);
+
+        updateSpinner(`Verifying (lint, typecheck, build, test)...`);
+        await this.packageManagerService.verify(repoPath, pm);
+      } catch (error: unknown) {
+        // A dirty tree would make every later run skip this repo.
+        await this.gitService.discardChanges(repoPath);
+        throw error;
+      }
 
       updateSpinner(`Committing and pushing...`);
       await this.gitService.add(repoPath);
