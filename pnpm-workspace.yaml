@@ -1,4 +1,11 @@
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
-  - ora@10.0.0
+  - '@vitest/coverage-istanbul@5.1.0'
+  - '@vitest/mocker@5.1.0'
+  - '@vitest/pretty-format@5.1.0'
+  - '@vitest/spy@5.1.0'
+  - '@vitest/ui@5.1.0'
+  - '@vitest/utils@5.1.0'
+  - semver@7.8.6
+  - vitest@5.1.0
