@@ -1,11 +1,10 @@
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
-  - '@vitest/coverage-istanbul@5.1.0'
-  - '@vitest/mocker@5.1.0'
-  - '@vitest/pretty-format@5.1.0'
-  - '@vitest/spy@5.1.0'
-  - '@vitest/ui@5.1.0'
-  - '@vitest/utils@5.1.0'
-  - semver@7.8.6
-  - vitest@5.1.0
+  - '@inversifyjs/common@2.0.2'
+  - '@inversifyjs/container@3.1.4'
+  - '@inversifyjs/core@15.0.2'
+  - '@inversifyjs/plugin@0.3.2'
+  - '@inversifyjs/prototype-utils@0.2.2'
+  - '@inversifyjs/reflect-metadata-utils@1.5.1'
+  - inversify@8.2.4
