@@ -1,4 +1,11 @@
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
-  - '@types/node@26.6.7'
+  - '@types/node@26.6.10'
+  - '@vitest/coverage-istanbul@5.1.2'
+  - '@vitest/mocker@5.1.2'
+  - '@vitest/pretty-format@5.1.2'
+  - '@vitest/spy@5.1.2'
+  - '@vitest/ui@5.1.2'
+  - '@vitest/utils@5.1.2'
+  - vitest@5.1.2
